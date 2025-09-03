@@ -2,17 +2,20 @@ group 'com.example.flutter_callkit_incoming'
 version '1.0-SNAPSHOT'
 
 buildscript {
-    ext.kotlin_version = '1.8.0'
+    ext.kotlin_version = '2.1.0'
+
     repositories {
         google()
-        jcenter()
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+        // jcenter()
     }
 
     dependencies {
         //classpath 'com.android.tools.build:gradle:4.1.0'
         //classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
         
-        classpath 'com.android.tools.build:gradle:7.1.2'
+        classpath 'com.android.tools.build:gradle:8.7.0'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
@@ -20,7 +23,9 @@ buildscript {
 rootProject.allprojects {
     repositories {
         google()
-        jcenter()
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+        // jcenter()
     }
 }
 
@@ -28,7 +33,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
-    compileSdk 34
+    compileSdk 36
 
     if (project.android.hasProperty("namespace")) {
         namespace "com.hiennv.flutter_callkit_incoming"
@@ -38,20 +43,21 @@ android {
         main.java.srcDirs += 'src/main/kotlin'
     }
     defaultConfig {
-        minSdk 16
-        targetSdk 34
+        minSdk 23
+        targetSdk 36
 
         consumerProguardFiles 'consumer-rules.pro'
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_1_8
+        jvmTarget = JavaVersion.VERSION_17
     }
+    ndkVersion '29.0.13846066 rc3'
 }
 
 dependencies {
