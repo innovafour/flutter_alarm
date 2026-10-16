@@ -7,12 +7,28 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import java.util.concurrent.atomic.AtomicBoolean
 
 class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "CallkitIncomingReceiver"
         var silenceEvents = false
+
+        /**
+         * Optional native hook for the host app: it hears accept, ended and
+         * timeout even when Flutter is not running (the app was closed and
+         * the call came from a push). [action] is one of
+         * [CallkitConstants.ACTION_CALL_ACCEPT], [CallkitConstants.ACTION_CALL_ENDED]
+         * or [CallkitConstants.ACTION_CALL_TIMEOUT]. The receiver stays alive
+         * until [done] is called, which must happen within a few seconds.
+         */
+        fun interface NativeActionListener {
+            fun onAction(context: Context, action: String, data: Bundle, done: () -> Unit)
+        }
+
+        @JvmStatic
+        var nativeActionListener: NativeActionListener? = null
 
         fun getIntent(context: Context, action: String, data: Bundle?) =
             Intent(context, CallkitIncomingBroadcastReceiver::class.java).apply {
@@ -75,6 +91,7 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
         val callkitNotificationManager = CallkitNotificationManager(context)
         val action = intent.action ?: return
         val data = intent.extras?.getBundle(CallkitConstants.EXTRA_CALLKIT_INCOMING_DATA) ?: return
+        notifyNative(context, action, data)
         when (action) {
             "${context.packageName}.${CallkitConstants.ACTION_CALL_INCOMING}" -> {
                 try {
@@ -148,6 +165,25 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     Log.e(TAG, null, error)
                 }
             }
+        }
+    }
+
+    private fun notifyNative(context: Context, action: String, data: Bundle) {
+        val listener = nativeActionListener ?: return
+        val event = when (action) {
+            "${context.packageName}.${CallkitConstants.ACTION_CALL_ACCEPT}" -> CallkitConstants.ACTION_CALL_ACCEPT
+            "${context.packageName}.${CallkitConstants.ACTION_CALL_ENDED}" -> CallkitConstants.ACTION_CALL_ENDED
+            "${context.packageName}.${CallkitConstants.ACTION_CALL_TIMEOUT}" -> CallkitConstants.ACTION_CALL_TIMEOUT
+            else -> return
+        }
+        val pending = goAsync()
+        val finished = AtomicBoolean(false)
+        val done = { if (finished.compareAndSet(false, true)) pending.finish() }
+        try {
+            listener.onAction(context.applicationContext, event, Bundle(data), done)
+        } catch (error: Exception) {
+            Log.e(TAG, null, error)
+            done()
         }
     }
 
