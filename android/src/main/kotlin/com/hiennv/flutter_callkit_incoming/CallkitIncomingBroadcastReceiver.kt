@@ -19,8 +19,10 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
          * Optional native hook for the host app: it hears accept, ended and
          * timeout even when Flutter is not running (the app was closed and
          * the call came from a push). [action] is one of
-         * [CallkitConstants.ACTION_CALL_ACCEPT], [CallkitConstants.ACTION_CALL_ENDED]
-         * or [CallkitConstants.ACTION_CALL_TIMEOUT]. The receiver stays alive
+         * [CallkitConstants.ACTION_CALL_ACCEPT], [CallkitConstants.ACTION_CALL_ENDED],
+         * [CallkitConstants.ACTION_CALL_TIMEOUT] or [CallkitConstants.ACTION_CALL_CUSTOM]
+         * (a custom answer button was tapped; [data] then holds the tapped id in
+         * [CallkitConstants.EXTRA_CALLKIT_CUSTOM_ACTION_ID]). The receiver stays alive
          * until [done] is called, which must happen within a few seconds.
          */
         fun interface NativeActionListener {
@@ -70,6 +72,15 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
             Intent(context, CallkitIncomingBroadcastReceiver::class.java).apply {
                 action = "${context.packageName}.${CallkitConstants.ACTION_CALL_CALLBACK}"
                 putExtra(CallkitConstants.EXTRA_CALLKIT_INCOMING_DATA, data)
+            }
+
+        /** Broadcast for a tapped custom answer button: the call data plus [actionId]. */
+        fun getIntentCustomAction(context: Context, data: Bundle?, actionId: String) =
+            Intent(context, CallkitIncomingBroadcastReceiver::class.java).apply {
+                action = "${context.packageName}.${CallkitConstants.ACTION_CALL_CUSTOM}"
+                val payload = if (data != null) Bundle(data) else Bundle()
+                payload.putString(CallkitConstants.EXTRA_CALLKIT_CUSTOM_ACTION_ID, actionId)
+                putExtra(CallkitConstants.EXTRA_CALLKIT_INCOMING_DATA, payload)
             }
 
         fun getIntentHeldByCell(context: Context, data: Bundle?) =
@@ -153,6 +164,18 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                 }
             }
 
+            "${context.packageName}.${CallkitConstants.ACTION_CALL_CUSTOM}" -> {
+                try {
+                    context.stopService(Intent(context, CallkitSoundPlayerService::class.java))
+                    callkitNotificationManager.clearIncomingNotification(data, false)
+                    removeCall(context, Data.fromBundle(data))
+                    sendEventFlutter(CallkitConstants.ACTION_CALL_CUSTOM, data)
+                    context.sendBroadcast(CallkitIncomingActivity.getIntentClose(context))
+                } catch (error: Exception) {
+                    Log.e(TAG, null, error)
+                }
+            }
+
             "${context.packageName}.${CallkitConstants.ACTION_CALL_CALLBACK}" -> {
                 try {
                     callkitNotificationManager.clearMissCallNotification(data)
@@ -174,6 +197,7 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
             "${context.packageName}.${CallkitConstants.ACTION_CALL_ACCEPT}" -> CallkitConstants.ACTION_CALL_ACCEPT
             "${context.packageName}.${CallkitConstants.ACTION_CALL_ENDED}" -> CallkitConstants.ACTION_CALL_ENDED
             "${context.packageName}.${CallkitConstants.ACTION_CALL_TIMEOUT}" -> CallkitConstants.ACTION_CALL_TIMEOUT
+            "${context.packageName}.${CallkitConstants.ACTION_CALL_CUSTOM}" -> CallkitConstants.ACTION_CALL_CUSTOM
             else -> return
         }
         val pending = goAsync()
@@ -211,6 +235,9 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                 ),
                 "isImportant" to data.getBoolean(CallkitConstants.EXTRA_CALLKIT_IS_IMPORTANT, false),
                 "isBot" to data.getBoolean(CallkitConstants.EXTRA_CALLKIT_IS_BOT, false),
+                "customActions" to Data.customActionsFromBundle(data).map { (id, label) ->
+                    mapOf("id" to id, "label" to label)
+                },
         )
         val notification = mapOf(
                 "id" to data.getInt(CallkitConstants.EXTRA_CALLKIT_MISSED_CALL_ID),
@@ -220,7 +247,7 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                 "callbackText" to data.getString(CallkitConstants.EXTRA_CALLKIT_MISSED_CALL_CALLBACK_TEXT),
                 "isShowCallback" to data.getBoolean(CallkitConstants.EXTRA_CALLKIT_MISSED_CALL_CALLBACK_SHOW),
         )
-        val forwardData = mapOf(
+        val forwardData = mutableMapOf(
                 "id" to data.getString(CallkitConstants.EXTRA_CALLKIT_ID, ""),
                 "nameCaller" to data.getString(CallkitConstants.EXTRA_CALLKIT_NAME_CALLER, ""),
                 "avatar" to data.getString(CallkitConstants.EXTRA_CALLKIT_AVATAR, ""),
@@ -232,6 +259,9 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                 "missedCallNotification" to notification,
                 "android" to android
         )
+        data.getString(CallkitConstants.EXTRA_CALLKIT_CUSTOM_ACTION_ID)?.let {
+            forwardData["customActionId"] = it
+        }
         FlutterCallkitIncomingPlugin.sendEvent(event, forwardData)
     }
 }

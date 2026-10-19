@@ -50,6 +50,9 @@ data class Data(val args: Map<String, Any?>) {
     var isImportant: Boolean = false
     var isBot: Boolean = false
 
+    /** Optional custom answer buttons: each map has "id" and "label". */
+    var customActions: List<Map<String, String>> = emptyList()
+
     init {
         var android: Map<String, Any?>? = args["android"] as? HashMap<String, Any?>?
         android = android ?: args
@@ -68,6 +71,7 @@ data class Data(val args: Map<String, Any?>) {
         isShowFullLockedScreen = android["isShowFullLockedScreen"] as? Boolean ?: true
         isImportant = android["isImportant"] as? Boolean ?: false
         isBot = android["isBot"] as? Boolean ?: false
+        customActions = parseCustomActions(android["customActions"])
 
         val missedNotification: Map<String, Any?>? =
             args["missedCallNotification"] as? Map<String, Any?>?
@@ -187,10 +191,46 @@ data class Data(val args: Map<String, Any?>) {
             CallkitConstants.EXTRA_CALLKIT_IS_BOT,
             isBot,
         )
+        if (customActions.isNotEmpty()) {
+            bundle.putParcelableArrayList(
+                CallkitConstants.EXTRA_CALLKIT_CUSTOM_ACTIONS,
+                ArrayList(customActions.map { action ->
+                    Bundle().apply {
+                        putString(CallkitConstants.CUSTOM_ACTION_KEY_ID, action["id"])
+                        putString(CallkitConstants.CUSTOM_ACTION_KEY_LABEL, action["label"])
+                    }
+                })
+            )
+        }
         return bundle
     }
 
     companion object {
+
+        /** Reads `[{id, label}, ...]` from the method-channel args; invalid items are skipped. */
+        fun parseCustomActions(raw: Any?): List<Map<String, String>> {
+            val list = raw as? List<*> ?: return emptyList()
+            return list.mapNotNull { item ->
+                val map = item as? Map<*, *> ?: return@mapNotNull null
+                val id = map["id"] as? String
+                val label = map["label"] as? String
+                if (id.isNullOrEmpty() || label.isNullOrEmpty()) null
+                else mapOf("id" to id, "label" to label)
+            }.take(CallkitConstants.MAX_CUSTOM_ACTIONS)
+        }
+
+        /** Custom actions stored in a call data bundle as (id, label) pairs; empty when none. */
+        @Suppress("DEPRECATION")
+        fun customActionsFromBundle(bundle: Bundle?): List<Pair<String, String>> {
+            val list = bundle?.getParcelableArrayList<Bundle>(
+                CallkitConstants.EXTRA_CALLKIT_CUSTOM_ACTIONS
+            ) ?: return emptyList()
+            return list.mapNotNull { item ->
+                val id = item.getString(CallkitConstants.CUSTOM_ACTION_KEY_ID)
+                val label = item.getString(CallkitConstants.CUSTOM_ACTION_KEY_LABEL)
+                if (id.isNullOrEmpty() || label.isNullOrEmpty()) null else id to label
+            }.take(CallkitConstants.MAX_CUSTOM_ACTIONS)
+        }
 
         fun fromBundle(bundle: Bundle): Data {
             val data = Data(emptyMap())
@@ -278,6 +318,9 @@ data class Data(val args: Map<String, Any?>) {
                 CallkitConstants.EXTRA_CALLKIT_IS_SHOW_FULL_LOCKED_SCREEN,
                 true
             )
+            data.customActions = customActionsFromBundle(bundle).map { (id, label) ->
+                mapOf("id" to id, "label" to label)
+            }
             return data
         }
     }

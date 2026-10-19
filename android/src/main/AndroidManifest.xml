@@ -41,6 +41,7 @@
                 <action android:name="${applicationId}.com.hiennv.flutter_callkit_incoming.ACTION_CALL_ACCEPT" />
                 <action android:name="${applicationId}.com.hiennv.flutter_callkit_incoming.ACTION_CALL_ENDED" />
                 <action android:name="${applicationId}.com.hiennv.flutter_callkit_incoming.ACTION_CALL_TIMEOUT" />
+                <action android:name="${applicationId}.com.hiennv.flutter_callkit_incoming.ACTION_CALL_CUSTOM" />
             </intent-filter>
         </receiver>
 

@@ -64,4 +64,13 @@ object CallkitConstants {
     const val EXTRA_CALLKIT_IS_SHOW_FULL_LOCKED_SCREEN = "EXTRA_CALLKIT_IS_SHOW_FULL_LOCKED_SCREEN"
     const val EXTRA_CALLKIT_IS_IMPORTANT = "EXTRA_CALLKIT_IS_IMPORTANT"
     const val EXTRA_CALLKIT_IS_BOT = "EXTRA_CALLKIT_IS_BOT"
+
+    /** ArrayList<Bundle>, each with [CUSTOM_ACTION_KEY_ID] and [CUSTOM_ACTION_KEY_LABEL]. */
+    const val EXTRA_CALLKIT_CUSTOM_ACTIONS = "EXTRA_CALLKIT_CUSTOM_ACTIONS"
+    /** Id of the custom action the user tapped (only on ACTION_CALL_CUSTOM). */
+    const val EXTRA_CALLKIT_CUSTOM_ACTION_ID = "EXTRA_CALLKIT_CUSTOM_ACTION_ID"
+    const val CUSTOM_ACTION_KEY_ID = "id"
+    const val CUSTOM_ACTION_KEY_LABEL = "label"
+    /** Max custom actions shown (Android notifications allow 3 actions). */
+    const val MAX_CUSTOM_ACTIONS = 3
 }

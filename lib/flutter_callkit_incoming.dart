@@ -26,6 +26,8 @@ class FlutterCallkitIncoming {
   /// Event.ACTION_CALL_ENDED - Ended an incoming/outgoing call
   /// Event.ACTION_CALL_TIMEOUT - Missed an incoming call
   /// Event.ACTION_CALL_CALLBACK - only Android (click action `Call back` from missed call notification)
+  /// Event.ACTION_CALL_CUSTOM - only Android: an `AndroidParams.customActions`
+  ///   button was tapped; the body carries the call data plus `customActionId`
   /// Event.ACTION_CALL_TOGGLE_HOLD - only iOS
   /// Event.ACTION_CALL_TOGGLE_MUTE - only iOS
   /// Event.ACTION_CALL_TOGGLE_DMTF - only iOS
@@ -143,8 +145,18 @@ class FlutterCallkitIncoming {
     Map<String, dynamic> body = {};
 
     if (data is Map) {
-      event = Event.values.firstWhere((e) => e.name == data['event']);
-      body = Map<String, dynamic>.from(data['body']);
+      for (final e in Event.values) {
+        if (e.name == data['event']) {
+          event = e;
+          break;
+        }
+      }
+      // Unknown native events are skipped instead of throwing.
+      if (event == null) return null;
+      final rawBody = data['body'];
+      if (rawBody is Map) {
+        body = Map<String, dynamic>.from(rawBody);
+      }
       return CallEvent(body, event);
     }
     return null;

@@ -2,6 +2,7 @@ package com.hiennv.flutter_callkit_incoming
 
 import android.app.Activity
 import android.app.KeyguardManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -11,14 +12,18 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.view.Window
 import android.view.WindowManager
 import android.view.animation.AnimationUtils
 import android.widget.Button
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.content.pm.ActivityInfo
+import androidx.core.content.ContextCompat
 
 
 class CallkitIncomingActivity : Activity() {
@@ -34,6 +39,13 @@ class CallkitIncomingActivity : Activity() {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
 
+        private const val ACTION_CLOSE_INCOMING =
+            "com.hiennv.flutter_callkit_incoming.ACTION_CLOSE_INCOMING"
+
+        /** Closes the incoming screen if it is open (sent after a custom action from the notification). */
+        fun getIntentClose(context: Context): Intent =
+            Intent("${context.packageName}.${ACTION_CLOSE_INCOMING}").setPackage(context.packageName)
+
         fun getIntentEnded(context: Context, isAccepted: Boolean): Intent {
             val intent = Intent("${context.packageName}.${ACTION_ENDED_CALL_INCOMING}")
             intent.putExtra("ACCEPTED", isAccepted)
@@ -45,6 +57,15 @@ class CallkitIncomingActivity : Activity() {
     private lateinit var tvNumber: TextView
     private lateinit var btnDismiss: Button
     private lateinit var ivIcon: ImageView
+    private var llCustomActions: LinearLayout? = null
+    private var closeReceiverRegistered = false
+    private var customActionSent = false
+
+    private val closeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (!isFinishing) finish()
+        }
+    }
 
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,6 +86,31 @@ class CallkitIncomingActivity : Activity() {
         setContentView(R.layout.activity_callkit_incoming)
         initView()
         incomingData(intent)
+        registerCloseReceiver()
+    }
+
+    private fun registerCloseReceiver() {
+        try {
+            ContextCompat.registerReceiver(
+                this,
+                closeReceiver,
+                IntentFilter("${packageName}.${ACTION_CLOSE_INCOMING}"),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+            closeReceiverRegistered = true
+        } catch (_: Exception) {
+        }
+    }
+
+    override fun onDestroy() {
+        if (closeReceiverRegistered) {
+            try {
+                unregisterReceiver(closeReceiver)
+            } catch (_: Exception) {
+            }
+            closeReceiverRegistered = false
+        }
+        super.onDestroy()
     }
 
     private fun transparentStatusAndNavigation() {
@@ -108,11 +154,59 @@ class CallkitIncomingActivity : Activity() {
         tvTitle.text = data.getString(CallkitConstants.EXTRA_CALLKIT_NAME_CALLER, "Notificación")
         tvNumber.text = data.getString(CallkitConstants.EXTRA_CALLKIT_HANDLE, "Tu visita va en camino")
 
-        
+        showCustomActions(data)
 
         val duration = data.getLong(CallkitConstants.EXTRA_CALLKIT_DURATION, 5000L)
         wakeLockRequest(duration)
         finishTimeout(duration)
+    }
+
+    /** With custom actions: hide the default button and stack one full-width button per action. */
+    private fun showCustomActions(data: Bundle) {
+        val container = llCustomActions ?: return
+        val actions = Data.customActionsFromBundle(data)
+        container.removeAllViews()
+        if (actions.isEmpty()) {
+            container.visibility = View.GONE
+            return
+        }
+        btnDismiss.visibility = View.GONE
+        container.visibility = View.VISIBLE
+        val density = resources.displayMetrics.density
+        val minHeightPx = (56 * density).toInt()
+        val pad = (16 * density).toInt()
+        val gap = (12 * density).toInt()
+        actions.forEachIndexed { index, (id, label) ->
+            val button = Button(this).apply {
+                text = label
+                isAllCaps = false
+                setTextColor(Color.WHITE)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+                setBackgroundResource(R.drawable.bg_button_purple)
+                setMinimumHeight(minHeightPx)
+                setMinHeight(minHeightPx)
+                gravity = Gravity.CENTER
+                setPadding(pad, pad / 2, pad, pad / 2)
+                stateListAnimator = null
+                setOnClickListener { onCustomAction(data, id) }
+            }
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            if (index > 0) params.topMargin = gap
+            container.addView(button, params)
+        }
+    }
+
+    private fun onCustomAction(data: Bundle, actionId: String) {
+        if (customActionSent) return
+        customActionSent = true
+        stopService(Intent(this, CallkitSoundPlayerService::class.java))
+        sendBroadcast(
+            CallkitIncomingBroadcastReceiver.getIntentCustomAction(this, data, actionId)
+        )
+        finish()
     }
 
     private fun wakeLockRequest(duration: Long) {
@@ -137,6 +231,7 @@ class CallkitIncomingActivity : Activity() {
         tvNumber = findViewById(R.id.tvNumber)
         btnDismiss = findViewById(R.id.btnDismiss)
         ivIcon = findViewById(R.id.ivIcon)
+        llCustomActions = findViewById(R.id.llCustomActions)
 
         val bounceAnim = AnimationUtils.loadAnimation(this, R.anim.bounce)
         ivIcon.startAnimation(bounceAnim)

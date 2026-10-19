@@ -1,5 +1,7 @@
 import 'package:json_annotation/json_annotation.dart';
 
+import 'android_custom_action.dart';
+
 part 'android_params.g.dart';
 
 /// Object config for Android.
@@ -20,6 +22,7 @@ class AndroidParams {
     this.isShowFullLockedScreen,
     this.isImportant,
     this.isBot,
+    this.customActions,
   });
 
   /// Using custom notifications.
@@ -65,6 +68,12 @@ class AndroidParams {
   /// Used primarily to identify automated tooling.
   /// https://developer.android.com/reference/androidx/core/app/Person#isBot()
   final bool? isBot;
+
+  /// Optional answer buttons (max 3) shown on the incoming-call screen and in
+  /// the incoming-call notification instead of the default button. Tapping one
+  /// fires `Event.actionCallCustom` with `customActionId`. Null or empty keeps
+  /// the default behavior.
+  final List<AndroidCustomAction>? customActions;
 
   factory AndroidParams.fromJson(Map<String, dynamic> json) =>
       _$AndroidParamsFromJson(json);

@@ -64,5 +64,17 @@
         android:paddingTop="12dp"
         android:paddingBottom="12dp"/>
 
+    <!-- Custom answer buttons (AndroidParams.customActions); filled at runtime, hidden otherwise. -->
+    <LinearLayout
+        android:id="@+id/llCustomActions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="48dp"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:orientation="vertical"
+        android:visibility="gone" />
+
 
 </RelativeLayout>

@@ -24,6 +24,9 @@ AndroidParams _$AndroidParamsFromJson(Map<String, dynamic> json) =>
       isShowFullLockedScreen: json['isShowFullLockedScreen'] as bool?,
       isImportant: json['isImportant'] as bool?,
       isBot: json['isBot'] as bool?,
+      customActions: (json['customActions'] as List<dynamic>?)
+          ?.map((e) => AndroidCustomAction.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
 
 Map<String, dynamic> _$AndroidParamsToJson(AndroidParams instance) =>
@@ -44,4 +47,5 @@ Map<String, dynamic> _$AndroidParamsToJson(AndroidParams instance) =>
       'isShowFullLockedScreen': instance.isShowFullLockedScreen,
       'isImportant': instance.isImportant,
       'isBot': instance.isBot,
+      'customActions': instance.customActions?.map((e) => e.toJson()).toList(),
     };

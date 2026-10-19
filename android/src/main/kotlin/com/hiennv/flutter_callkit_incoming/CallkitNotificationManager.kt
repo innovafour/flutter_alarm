@@ -140,6 +140,7 @@ class CallkitNotificationManager(private val context: Context) {
             data.getBoolean(CallkitConstants.EXTRA_CALLKIT_IS_CUSTOM_NOTIFICATION, false)
         val isCustomSmallExNotification =
             data.getBoolean(CallkitConstants.EXTRA_CALLKIT_IS_CUSTOM_SMALL_EX_NOTIFICATION, false)
+        val customActions = Data.customActionsFromBundle(data)
         if (isCustomNotification) {
             notificationViews =
                 RemoteViews(context.packageName, R.layout.layout_custom_notification)
@@ -178,7 +179,9 @@ class CallkitNotificationManager(private val context: Context) {
                     .into(targetLoadAvatarDefault)
             }
             val caller = data.getString(CallkitConstants.EXTRA_CALLKIT_NAME_CALLER, "")
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            if (customActions.isNotEmpty()) {
+                notificationBuilder.setContentTitle(caller)
+            } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
                 notificationBuilder.setContentTitle(caller)
                 val textAccept = data.getString(CallkitConstants.EXTRA_CALLKIT_TEXT_ACCEPT, "")
                 val acceptAction: NotificationCompat.Action = NotificationCompat.Action.Builder(
@@ -189,6 +192,15 @@ class CallkitNotificationManager(private val context: Context) {
 
                 notificationBuilder.addAction(acceptAction)
             }
+        }
+        customActions.forEachIndexed { index, (actionId, label) ->
+            notificationBuilder.addAction(
+                NotificationCompat.Action.Builder(
+                    R.drawable.app_icon,
+                    label,
+                    getCustomActionPendingIntent(notificationId, index, actionId, data)
+                ).build()
+            )
         }
         val notification = notificationBuilder.build()
         notification.flags = Notification.FLAG_INSISTENT
@@ -211,6 +223,10 @@ class CallkitNotificationManager(private val context: Context) {
             R.id.llAccept,
             getAcceptPendingIntent(notificationId, data)
         )
+        if (Data.customActionsFromBundle(data).isNotEmpty()) {
+            // The custom actions replace the accept button.
+            remoteViews.setViewVisibility(R.id.llAccept, View.GONE)
+        }
         val textAccept = data.getString(CallkitConstants.EXTRA_CALLKIT_TEXT_ACCEPT, "")
         remoteViews.setTextViewText(
             R.id.tvAccept,
@@ -429,6 +445,19 @@ class CallkitNotificationManager(private val context: Context) {
             data
         )
         return PendingIntent.getActivity(context, id, intentTransparent, getFlagPendingIntent())
+    }
+
+    /** Broadcast (no activity trampoline) so the answer works without opening the app. */
+    private fun getCustomActionPendingIntent(
+        id: Int,
+        index: Int,
+        actionId: String,
+        data: Bundle
+    ): PendingIntent {
+        val intent = CallkitIncomingBroadcastReceiver.getIntentCustomAction(context, data, actionId)
+        // Same action/component for every button, so each needs its own request code.
+        val requestCode = id * 31 + 1 + index
+        return PendingIntent.getBroadcast(context, requestCode, intent, getFlagPendingIntent())
     }
 
     private fun getTimeOutPendingIntent(id: Int, data: Bundle): PendingIntent {
