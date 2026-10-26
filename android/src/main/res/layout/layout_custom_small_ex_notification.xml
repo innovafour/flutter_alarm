@@ -39,28 +39,59 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/llCallActions"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:layout_gravity="center_vertical">
 
             <LinearLayout
-                android:id="@+id/llAccept"
+                android:id="@+id/llDecline"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:layout_gravity="center"
-                android:background="@drawable/rounded_button_accept"
+                android:layout_marginEnd="@dimen/base_margin"
+                android:background="@drawable/bg_call_decline"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center"
                 android:orientation="horizontal">
 
                 <ImageView
-                    android:id="@+id/ivAcceptIcon"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
-                    android:src="@drawable/ic_notification"
-                    android:contentDescription="Aceptar notificación" />
+                    android:src="@drawable/ic_call_decline"
+                    android:importantForAccessibility="no" />
+
+                <TextView
+                    android:id="@+id/tvDecline"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/llAccept"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_call_accept"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_call_accept"
+                    android:importantForAccessibility="no" />
+
+                <TextView
+                    android:id="@+id/tvAccept"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:visibility="gone" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

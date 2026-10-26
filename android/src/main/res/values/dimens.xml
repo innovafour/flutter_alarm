@@ -21,4 +21,13 @@
 
     <dimen name="size_text_name">24sp</dimen>
     <dimen name="size_text_action">14sp</dimen>
+
+    <dimen name="call_button">76dp</dimen>
+    <dimen name="call_button_icon">34dp</dimen>
+    <dimen name="call_screen_top_padding">96dp</dimen>
+    <dimen name="call_screen_bottom_padding">64dp</dimen>
+    <dimen name="call_screen_side_padding">32dp</dimen>
+    <dimen name="size_text_caller">32sp</dimen>
+    <dimen name="size_text_call_detail">17sp</dimen>
+    <dimen name="size_text_call_button">15sp</dimen>
 </resources>

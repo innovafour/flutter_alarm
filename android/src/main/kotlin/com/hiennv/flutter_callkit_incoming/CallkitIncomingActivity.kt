@@ -17,13 +17,14 @@ import android.view.Gravity
 import android.view.View
 import android.view.Window
 import android.view.WindowManager
-import android.view.animation.AnimationUtils
+import android.text.TextUtils
 import android.widget.Button
-import android.widget.ImageView
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.content.pm.ActivityInfo
 import androidx.core.content.ContextCompat
+import kotlin.math.abs
 
 
 class CallkitIncomingActivity : Activity() {
@@ -48,18 +49,23 @@ class CallkitIncomingActivity : Activity() {
 
         fun getIntentEnded(context: Context, isAccepted: Boolean): Intent {
             val intent = Intent("${context.packageName}.${ACTION_ENDED_CALL_INCOMING}")
+                .setPackage(context.packageName)
             intent.putExtra("ACCEPTED", isAccepted)
             return intent
         }
     }
 
+    private lateinit var tvAppName: TextView
     private lateinit var tvTitle: TextView
     private lateinit var tvNumber: TextView
-    private lateinit var btnDismiss: Button
-    private lateinit var ivIcon: ImageView
+    private lateinit var tvAccept: TextView
+    private lateinit var tvDecline: TextView
+    private lateinit var btnAccept: ImageButton
+    private lateinit var btnDecline: ImageButton
+    private lateinit var llCallActions: LinearLayout
     private var llCustomActions: LinearLayout? = null
     private var closeReceiverRegistered = false
-    private var customActionSent = false
+    private var answered = false
 
     private val closeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -75,9 +81,11 @@ class CallkitIncomingActivity : Activity() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            setShowWhenLocked(true)
             setTurnScreenOn(true)
         } else {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
             window.addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
             window.addFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD)
         }
@@ -89,12 +97,16 @@ class CallkitIncomingActivity : Activity() {
         registerCloseReceiver()
     }
 
+    /** Closes the screen when the call ends elsewhere (answered from the notification, ended by the app, a custom action). */
     private fun registerCloseReceiver() {
         try {
+            val filter = IntentFilter()
+            filter.addAction("${packageName}.${ACTION_CLOSE_INCOMING}")
+            filter.addAction("${packageName}.${ACTION_ENDED_CALL_INCOMING}")
             ContextCompat.registerReceiver(
                 this,
                 closeReceiver,
-                IntentFilter("${packageName}.${ACTION_CLOSE_INCOMING}"),
+                filter,
                 ContextCompat.RECEIVER_NOT_EXPORTED
             )
             closeReceiverRegistered = true
@@ -151,26 +163,46 @@ class CallkitIncomingActivity : Activity() {
             return
         }
 
-        tvTitle.text = data.getString(CallkitConstants.EXTRA_CALLKIT_NAME_CALLER, "Notificación")
-        tvNumber.text = data.getString(CallkitConstants.EXTRA_CALLKIT_HANDLE, "Tu visita va en camino")
+        tvAppName.text = data.getString(CallkitConstants.EXTRA_CALLKIT_APP_NAME, "")
+        tvTitle.text = data.getString(CallkitConstants.EXTRA_CALLKIT_NAME_CALLER, "")
+        val handle = data.getString(CallkitConstants.EXTRA_CALLKIT_HANDLE, "")
+        val isShowCallID = data.getBoolean(CallkitConstants.EXTRA_CALLKIT_IS_SHOW_CALL_ID, false)
+        tvNumber.text = handle
+        tvNumber.visibility = if (isShowCallID && !TextUtils.isEmpty(handle)) View.VISIBLE else View.GONE
+
+        val textAccept = data.getString(CallkitConstants.EXTRA_CALLKIT_TEXT_ACCEPT, "")
+        val textDecline = data.getString(CallkitConstants.EXTRA_CALLKIT_TEXT_DECLINE, "")
+        tvAccept.text = if (TextUtils.isEmpty(textAccept)) getString(R.string.text_accept) else textAccept
+        tvDecline.text = if (TextUtils.isEmpty(textDecline)) getString(R.string.text_decline) else textDecline
+        btnAccept.contentDescription = tvAccept.text
+        btnDecline.contentDescription = tvDecline.text
+        btnAccept.setOnClickListener { onAccept(data) }
+        btnDecline.setOnClickListener { onDecline(data) }
 
         showCustomActions(data)
 
-        val duration = data.getLong(CallkitConstants.EXTRA_CALLKIT_DURATION, 5000L)
-        wakeLockRequest(duration)
-        finishTimeout(duration)
+        val duration = data.getLong(CallkitConstants.EXTRA_CALLKIT_DURATION, 30000L)
+        val startedAt = data.getLong(CallkitNotificationManager.EXTRA_TIME_START_CALL, System.currentTimeMillis())
+        val remaining = duration - abs(System.currentTimeMillis() - startedAt)
+        if (remaining <= 0L) {
+            finish()
+            return
+        }
+        wakeLockRequest(remaining)
+        finishTimeout(remaining)
     }
 
-    /** With custom actions: hide the default button and stack one full-width button per action. */
+    /** With custom actions: hide decline/accept and stack one full-width button per action. */
     private fun showCustomActions(data: Bundle) {
         val container = llCustomActions ?: return
         val actions = Data.customActionsFromBundle(data)
         container.removeAllViews()
         if (actions.isEmpty()) {
             container.visibility = View.GONE
+            llCallActions.visibility = View.VISIBLE
             return
         }
-        btnDismiss.visibility = View.GONE
+        llCallActions.visibility = View.GONE
         container.visibility = View.VISIBLE
         val density = resources.displayMetrics.density
         val minHeightPx = (56 * density).toInt()
@@ -182,7 +214,7 @@ class CallkitIncomingActivity : Activity() {
                 isAllCaps = false
                 setTextColor(Color.WHITE)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
-                setBackgroundResource(R.drawable.bg_button_purple)
+                setBackgroundResource(R.drawable.bg_call_option)
                 setMinimumHeight(minHeightPx)
                 setMinHeight(minHeightPx)
                 gravity = Gravity.CENTER
@@ -199,14 +231,40 @@ class CallkitIncomingActivity : Activity() {
         }
     }
 
+    /** Same path as the notification's accept: the receiver reports it and the app opens. */
+    private fun onAccept(data: Bundle) {
+        if (answered) return
+        answered = true
+        stopService(Intent(this, CallkitSoundPlayerService::class.java))
+        startActivity(TransparentActivity.getIntent(this, CallkitConstants.ACTION_CALL_ACCEPT, data))
+        dismissKeyguard()
+        finish()
+    }
+
+    /** A decline is an ended call that was never accepted, as on the iPhone. */
+    private fun onDecline(data: Bundle) {
+        if (answered) return
+        answered = true
+        stopService(Intent(this, CallkitSoundPlayerService::class.java))
+        sendBroadcast(CallkitIncomingBroadcastReceiver.getIntentEnded(this, data))
+        finish()
+    }
+
     private fun onCustomAction(data: Bundle, actionId: String) {
-        if (customActionSent) return
-        customActionSent = true
+        if (answered) return
+        answered = true
         stopService(Intent(this, CallkitSoundPlayerService::class.java))
         sendBroadcast(
             CallkitIncomingBroadcastReceiver.getIntentCustomAction(this, data, actionId)
         )
         finish()
+    }
+
+    private fun dismissKeyguard() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+            keyguardManager.requestDismissKeyguard(this, null)
+        }
     }
 
     private fun wakeLockRequest(duration: Long) {
@@ -227,19 +285,15 @@ class CallkitIncomingActivity : Activity() {
     }
 
     private fun initView() {
+        tvAppName = findViewById(R.id.tvAppName)
         tvTitle = findViewById(R.id.tvTitle)
         tvNumber = findViewById(R.id.tvNumber)
-        btnDismiss = findViewById(R.id.btnDismiss)
-        ivIcon = findViewById(R.id.ivIcon)
+        tvAccept = findViewById(R.id.tvAccept)
+        tvDecline = findViewById(R.id.tvDecline)
+        btnAccept = findViewById(R.id.btnAccept)
+        btnDecline = findViewById(R.id.btnDecline)
+        llCallActions = findViewById(R.id.llCallActions)
         llCustomActions = findViewById(R.id.llCustomActions)
-
-        val bounceAnim = AnimationUtils.loadAnimation(this, R.anim.bounce)
-        ivIcon.startAnimation(bounceAnim)
-
-        btnDismiss.setOnClickListener {
-            stopService(Intent(this, CallkitSoundPlayerService::class.java))
-            finish()
-        }
     }
 
     override fun onBackPressed() {}

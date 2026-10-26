@@ -41,8 +41,7 @@ void main() {
     ]);
   });
 
-  test('onEvent decodes ACTION_CALL_CUSTOM and skips unknown events',
-      () async {
+  test('onEvent decodes ACTION_CALL_CUSTOM and skips unknown events', () async {
     const channel = EventChannel('flutter_callkit_incoming_events');
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
@@ -66,5 +65,14 @@ void main() {
     expect(events.last!.body['customActionId'], 'up');
     expect(events.last!.body['id'], 'call-1');
     messenger.setMockStreamHandler(channel, null);
+  });
+
+  test('CallKitParams carries the Android decline label', () {
+    const params =
+        CallKitParams(id: '1', textAccept: 'Aceptar', textDecline: 'Rechazar');
+    final json = params.toJson();
+    expect(json['textDecline'], 'Rechazar');
+    expect(CallKitParams.fromJson(json).textDecline, 'Rechazar');
+    expect(const CallKitParams(id: '1').toJson()['textDecline'], isNull);
   });
 }

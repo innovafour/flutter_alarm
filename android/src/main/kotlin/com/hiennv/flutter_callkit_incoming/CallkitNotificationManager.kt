@@ -179,18 +179,22 @@ class CallkitNotificationManager(private val context: Context) {
                     .into(targetLoadAvatarDefault)
             }
             val caller = data.getString(CallkitConstants.EXTRA_CALLKIT_NAME_CALLER, "")
-            if (customActions.isNotEmpty()) {
-                notificationBuilder.setContentTitle(caller)
-            } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-                notificationBuilder.setContentTitle(caller)
-                val textAccept = data.getString(CallkitConstants.EXTRA_CALLKIT_TEXT_ACCEPT, "")
-                val acceptAction: NotificationCompat.Action = NotificationCompat.Action.Builder(
-                    R.drawable.app_icon,
-                    if (TextUtils.isEmpty(textAccept)) context.getString(R.string.text_accept) else textAccept,
-                    getAcceptPendingIntent(notificationId, data)
-                ).build()
-
-                notificationBuilder.addAction(acceptAction)
+            notificationBuilder.setContentTitle(caller)
+            if (customActions.isEmpty()) {
+                notificationBuilder.addAction(
+                    NotificationCompat.Action.Builder(
+                        R.drawable.ic_call_decline,
+                        declineText(data),
+                        getDeclinePendingIntent(notificationId, data)
+                    ).build()
+                )
+                notificationBuilder.addAction(
+                    NotificationCompat.Action.Builder(
+                        R.drawable.ic_call_accept,
+                        acceptText(data),
+                        getAcceptPendingIntent(notificationId, data)
+                    ).build()
+                )
             }
         }
         customActions.forEachIndexed { index, (actionId, label) ->
@@ -223,15 +227,18 @@ class CallkitNotificationManager(private val context: Context) {
             R.id.llAccept,
             getAcceptPendingIntent(notificationId, data)
         )
-        if (Data.customActionsFromBundle(data).isNotEmpty()) {
-            // The custom actions replace the accept button.
-            remoteViews.setViewVisibility(R.id.llAccept, View.GONE)
-        }
-        val textAccept = data.getString(CallkitConstants.EXTRA_CALLKIT_TEXT_ACCEPT, "")
-        remoteViews.setTextViewText(
-            R.id.tvAccept,
-            if (TextUtils.isEmpty(textAccept)) context.getString(R.string.text_accept) else textAccept
+        remoteViews.setOnClickPendingIntent(
+            R.id.llDecline,
+            getDeclinePendingIntent(notificationId, data)
         )
+        if (Data.customActionsFromBundle(data).isNotEmpty()) {
+            // The custom actions replace decline and accept.
+            remoteViews.setViewVisibility(R.id.llCallActions, View.GONE)
+        }
+        remoteViews.setTextViewText(R.id.tvAccept, acceptText(data))
+        remoteViews.setTextViewText(R.id.tvDecline, declineText(data))
+        remoteViews.setContentDescription(R.id.llAccept, acceptText(data))
+        remoteViews.setContentDescription(R.id.llDecline, declineText(data))
         val avatarUrl = data.getString(CallkitConstants.EXTRA_CALLKIT_AVATAR, "")
         if (avatarUrl != null && avatarUrl.isNotEmpty()) {
             val headers =
@@ -445,6 +452,22 @@ class CallkitNotificationManager(private val context: Context) {
             data
         )
         return PendingIntent.getActivity(context, id, intentTransparent, getFlagPendingIntent())
+    }
+
+    private fun acceptText(data: Bundle): String {
+        val text = data.getString(CallkitConstants.EXTRA_CALLKIT_TEXT_ACCEPT, "")
+        return if (TextUtils.isEmpty(text)) context.getString(R.string.text_accept) else text
+    }
+
+    private fun declineText(data: Bundle): String {
+        val text = data.getString(CallkitConstants.EXTRA_CALLKIT_TEXT_DECLINE, "")
+        return if (TextUtils.isEmpty(text)) context.getString(R.string.text_decline) else text
+    }
+
+    /** A decline is an ended call that was never accepted; a broadcast, so the app stays closed. */
+    private fun getDeclinePendingIntent(id: Int, data: Bundle): PendingIntent {
+        val intent = CallkitIncomingBroadcastReceiver.getIntentEnded(context, data)
+        return PendingIntent.getBroadcast(context, id, intent, getFlagPendingIntent())
     }
 
     /** Broadcast (no activity trampoline) so the answer works without opening the app. */

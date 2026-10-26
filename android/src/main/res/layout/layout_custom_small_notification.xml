@@ -40,26 +40,60 @@
     </LinearLayout>
 
     <LinearLayout
-        android:id="@+id/llAccept"
+        android:id="@+id/llCallActions"
         android:layout_width="match_parent"
-        android:layout_height="@dimen/base_margin_x3_5"
-        android:background="@drawable/rounded_button_accept"
-        android:clickable="true"
-        android:focusable="true"
-        android:gravity="center"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/base_margin_half"
         android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/tvAccept"
-            style="@style/Widget.Compat.NotificationActionText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="@dimen/base_margin_half"
+        <LinearLayout
+            android:id="@+id/llDecline"
+            android:layout_width="0dp"
+            android:layout_height="@dimen/base_margin_x3_5"
+            android:layout_weight="1"
             android:layout_marginEnd="@dimen/base_margin_half"
+            android:background="@drawable/bg_notification_decline"
+            android:clickable="true"
+            android:focusable="true"
             android:gravity="center"
-            android:text="@string/text_accept"
-            android:textAllCaps="false"
-            android:textColor="@color/action_text" />
-    </LinearLayout>
+            android:orientation="horizontal">
 
+            <TextView
+                android:id="@+id/tvDecline"
+                style="@style/Widget.Compat.NotificationActionText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="@string/text_decline"
+                android:textAllCaps="false"
+                android:textColor="@color/action_text"
+                android:drawableStart="@drawable/ic_call_decline"
+                android:drawablePadding="8dp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/llAccept"
+            android:layout_width="0dp"
+            android:layout_height="@dimen/base_margin_x3_5"
+            android:layout_weight="1"
+            android:layout_marginStart="@dimen/base_margin_half"
+            android:background="@drawable/bg_notification_accept"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvAccept"
+                style="@style/Widget.Compat.NotificationActionText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="@string/text_accept"
+                android:textAllCaps="false"
+                android:textColor="@color/action_text"
+                android:drawableStart="@drawable/ic_call_accept"
+                android:drawablePadding="8dp" />
+        </LinearLayout>
+    </LinearLayout>
 </LinearLayout>

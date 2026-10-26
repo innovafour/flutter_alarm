@@ -19,6 +19,7 @@ class CallKitParams {
     this.normalHandle,
     this.duration,
     this.textAccept,
+    this.textDecline,
     this.missedCallNotification,
     this.extra,
     this.headers,
@@ -35,6 +36,9 @@ class CallKitParams {
   final int? normalHandle;
   final int? duration;
   final String? textAccept;
+
+  /// Android only: label of the decline button (iOS uses the system one).
+  final String? textDecline;
   final NotificationParams? missedCallNotification;
   final Map<String, dynamic>? extra;
   final Map<String, dynamic>? headers;
